@@ -1,103 +1,113 @@
 # Psiduck-AI
 
-A single-latent-space, multi-agent solver for [AIME](https://en.wikipedia.org/wiki/American_Invitational_Mathematics_Examination) problems.
+**Can four LLMs that talk to each other in *latent space* solve problems a single LLM can't — while using *less* generation compute?**
 
-One open-weights language model is loaded **exactly once** and shared by a
-controller, four specialist delegates, and an aggregator. Because every agent
-routes through the *same* weights, they all operate in the same latent space,
-and there are **no per-delegate API credits** — the model is local and loaded a
-single time.
+Psiduck-AI is a research scaffold for exactly that question. One open-weights
+model is loaded **once** and shared by an encoder/controller, four specialist
+delegates, and a decoder. The agents communicate by exchanging **latent vectors**
+(pooled hidden states injected into the next stage as "soft tokens" via
+`inputs_embeds`) — **not** English text. The only natural language ever
+*generated* is the final integer answer.
 
 ```
-                 ┌──────────────┐
-   problem  ──▶  │  controller  │  writes a short plan
-                 └──────┬───────┘
-                        ▼
-      ┌──────────┬──────────┬────────────────┬───────────┐
-      │ algebra  │ counting │ number-theory  │ verifier  │  4 delegates
-      └────┬─────┴────┬─────┴───────┬────────┴─────┬──────┘
-           └──────────┴─────────────┴──────────────┘
-                        ▼
-                 ┌──────────────┐
-                 │ aggregator   │  reconciles → final integer (0–999)
-                 └──────────────┘
-
-All five agents share ONE backbone instance (one set of weights, one latent space).
+ problem ─(embed)─▶ encode ──▶ context latent
+                                   │
+        ┌──────────┬──────────────┼───────────────┬───────────┐
+        ▼          ▼              ▼                ▼
+     algebra   counting     number-theory     geometry/verify     (4 delegates)
+        │          │              │                │
+        └──────────┴──────┬───────┴────────────────┘
+                          ▼  (latent messages — zero English generated)
+                    fuse + decode ──▶ final integer (short generation)
 ```
 
-## Why "same latent space"?
+## Why this could be cheaper than one LLM
 
-Every `Agent` holds a reference to the **same** `Backbone` object
-(`psiduck/backbone.py`). Specialization comes from each agent's system prompt,
-not from a separate model. The invariant is enforced in
-`LatentDelegationOrchestrator.__init__` and demonstrated by
-`scripts/demo_shared_latent.py`, which prints the shared object id for all
-agents and reads a pooled hidden-state vector from the shared backbone.
+The expensive part of inference is **autoregressive generation**: every output
+token is one sequential forward step. A single LLM solving a hard problem
+"thinks out loud" in English for hundreds of tokens. Here, the agents exchange
+fixed-size latent vectors (one forward pass each, **zero generated tokens**), and
+only the final answer is decoded. So the multi-agent pipeline generates far
+fewer tokens than an English chain-of-thought — see the `gen_tokens` column in
+the demo output.
+
+> **Honest scope.** This scaffold demonstrates the *mechanism* (latent AI-to-AI
+> communication over a single shared latent space) and the *compute profile*
+> (few generated tokens). It does **not** claim a small, untrained model beats a
+> baseline on hard AIME problems — closing the accuracy gap is the research this
+> scaffold is built to enable. Point `PSIDUCK_MODEL` at a heavier model on
+> capable hardware to study accuracy at scale.
 
 ## Requirements
 
-- Python 3.10+ (developed on 3.12)
-- CPU is fine — the default model is `Qwen/Qwen2.5-0.5B-Instruct` (Apache-2.0)
+- Python 3.10+ (developed on 3.12), CPU is fine for the default 0.5B model
+- Linux/macOS; `scripts/install.sh` creates a local virtualenv
 
 ## Setup
 
 ```bash
-bash scripts/install.sh      # installs deps + prefetches the model into the HF cache
+bash scripts/install.sh        # venv at .venv + deps + model prefetch into .hf_cache
 ```
 
 This is exactly what the Cloud Agent environment runs on `install`
-(`.cursor/environment.json`).
+(`.cursor/environment.json`). Everything is installed **inside the repo** (`.venv`,
+`.hf_cache`) so it persists on the workspace volume.
 
 ## Usage
 
-```bash
-python main.py --list                 # show built-in sample problems
-python main.py --problem-index 0      # solve a sample problem end-to-end
-python main.py --problem "Find the remainder when 7^100 is divided by 1000."
+Use the virtualenv's Python (or `source .venv/bin/activate` first):
 
-python scripts/demo_shared_latent.py  # prove all agents share one latent space
+```bash
+.venv/bin/python main.py --list                 # list sample problems
+.venv/bin/python main.py --problem-index 2       # compare baseline vs latent on one problem
+.venv/bin/python main.py --all                   # run all samples + aggregate compute
+.venv/bin/python main.py --problem "Find the remainder when 7^100 is divided by 1000."
+
+.venv/bin/python scripts/demo_shared_latent.py   # show the shared latent space
 ```
 
-Configuration is via environment variables (all optional):
+Each run prints both approaches side by side:
+
+| approach | answer | correct | gen_tokens | fwd_passes | wall_s |
+| --- | --- | --- | --- | --- | --- |
+| single-llm-english | ... | ... | ~256 | 0 | ... |
+| latent-4-agent | ... | ... | ~a few | 5 | ... |
+
+## Configuration (environment variables)
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `PSIDUCK_MODEL` | `Qwen/Qwen2.5-0.5B-Instruct` | Hugging Face model id |
-| `PSIDUCK_MAX_NEW_TOKENS` | `192` | Tokens per delegate answer |
-| `PSIDUCK_CONTROLLER_MAX_NEW_TOKENS` | `224` | Tokens for the plan |
-| `PSIDUCK_AGGREGATOR_MAX_NEW_TOKENS` | `160` | Tokens for aggregation |
+| `PSIDUCK_MODEL` | `Qwen/Qwen2.5-0.5B-Instruct` | Hugging Face model id (swap in a heavier model) |
+| `PSIDUCK_BASELINE_MAX_NEW_TOKENS` | `256` | Baseline English chain-of-thought budget |
+| `PSIDUCK_ANSWER_MAX_NEW_TOKENS` | `24` | Tokens the latent decoder may emit for the answer |
 | `PSIDUCK_TEMPERATURE` | `0.0` | >0 enables sampling |
 | `PSIDUCK_TORCH_THREADS` | `0` (auto) | CPU threads for torch |
-
-> Note: a 0.5B CPU model is used so the pipeline runs anywhere without a GPU or
-> credits. It demonstrates the **architecture** end-to-end; it is not expected to
-> reliably solve hard AIME problems. Point `PSIDUCK_MODEL` at a larger model on
-> capable hardware for real accuracy.
+| `HF_HOME` | `<repo>/.hf_cache` | Hugging Face cache location |
 
 ## Tests
 
 ```bash
-python -m pytest
+.venv/bin/python -m pytest
 ```
 
-Unit tests use a dependency-free `FakeBackbone` (no torch, no downloads) to
-verify the orchestration wiring, the single-backbone invariant, and AIME answer
-parsing/normalization.
+Unit tests use a dependency-free `FakeBackbone` (no torch, no downloads) that
+implements the same latent API and updates a real `ComputeMeter`, so they assert
+both the orchestration wiring and the core thesis (latent communication
+generates far fewer tokens than the English baseline).
 
 ## Project layout
 
 ```
 psiduck/
-  backbone.py       # Backbone protocol + SharedModel (one HF model, loaded once)
-  agents.py         # Agent role + controller/delegate/aggregator prompts
-  orchestrator.py   # LatentDelegationOrchestrator: controller → 4 delegates → aggregator
-  aime.py           # answer extraction + normalization to [0, 999]
-  data.py           # sample AIME problems
-  config.py         # env-driven settings
-main.py             # CLI: solve a problem, print the full trace
-scripts/
-  install.sh        # idempotent env bootstrap (deps + model prefetch)
-  prefetch_model.py # warm the HF cache
-  demo_shared_latent.py
-tests/              # pytest suite (FakeBackbone)
+  backbone.py     # SharedModel: one HF model + latent-communication primitives
+  pipeline.py     # LatentDelegationSolver, SingleModelSolver, compare()
+  metrics.py      # ComputeMeter / ComputeStats (generated tokens, forward passes)
+  roles.py        # the four delegate role tags (embedded, never generated)
+  aime.py         # answer extraction + normalization to [0, 999]
+  data.py         # sample problems (easy + AIME)
+  config.py       # env-driven settings
+  hf_env.py       # point HF cache into the repo
+main.py           # CLI: baseline vs latent comparison
+scripts/          # install.sh, prefetch_model.py, demo_shared_latent.py
+tests/            # pytest suite (FakeBackbone)
 ```

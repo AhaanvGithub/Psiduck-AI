@@ -6,10 +6,15 @@ __pycache__/
 build/
 dist/
 
-# Virtual envs
+# Virtual env (created by scripts/install.sh inside the repo)
 .venv/
 venv/
 env/
+
+# In-repo Hugging Face cache (never commit weights)
+.hf_cache/
+*.safetensors
+*.bin
 
 # Test / tooling caches
 .pytest_cache/
@@ -17,11 +22,6 @@ env/
 .ruff_cache/
 .coverage
 htmlcov/
-
-# Hugging Face / model caches (never commit weights)
-.cache/
-*.safetensors
-*.bin
 
 # Editor / OS
 .DS_Store
