@@ -1,0 +1,32 @@
+# Runtime + dev dependencies for Psiduck-AI.
+#
+# NOTE on torch: this is the plain (CUDA-enabled) wheel from PyPI, not the
+# +cpu build. On a machine with an NVIDIA GPU + driver, this lets
+# psiduck.backbone.SharedModel use CUDA (device="auto" in psiduck/config.py
+# picks it up automatically); on a GPU-less machine (e.g. the Cloud Agent
+# sandbox) it just runs on CPU as before, at the cost of a larger download
+# (~2-3GB, since CUDA runtime libs are bundled) than the +cpu build.
+# If you deliberately want the smaller CPU-only build instead, use:
+#   pip install torch==2.10.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+#
+# Also note: torch==2.4.1+cpu (the original pin) has no wheel for newer
+# Python versions (3.12/3.13/3.14), which is why `pip install -r
+# requirements.txt` originally failed with "Could not find a version that
+# satisfies the requirement". 2.10.0 has been smoke-tested here against the
+# exact inputs_embeds/output_hidden_states/generate(inputs_embeds=...) calls
+# backbone.py makes.
+torch==2.10.0
+transformers==4.48.0
+accelerate==1.2.1
+
+# psiduck.data.load_hf_aime() (the real AIME24/25 sets) uses the HF
+# datasets-server REST API directly over `requests` (already pulled in
+# transitively by huggingface_hub/transformers) instead of the `datasets`
+# package, whose `dill`-based caching layer breaks on very new Python
+# versions (3.13/3.14) with a Pickler._batch_setitems TypeError.
+
+# main.py --dashboard: live-updating terminal table + summary for demos.
+rich==15.0.0
+
+# Testing
+pytest==8.3.2
