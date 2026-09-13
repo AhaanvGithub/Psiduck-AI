@@ -8,12 +8,20 @@ Examples:
     python main.py --all --dataset aime24 --self-consistency 4
     python main.py --all --dataset aime24 --dashboard   # live terminal table, for demos
     python main.py --all --ablation-scramble            # does the decoder use the latent at all?
+    python main.py --all --decode-reasoning             # give the decoder room to work, not just blurt a digit
+    python main.py --all --latent-variant shallow       # skip delegate re-pooling (1 hop, not 5)
+    python main.py --all --latent-variant minimal       # no delegates at all -- just encode -> decode
 
 Baselines:
     single-llm-english   greedy, temperature 0 (the original headline baseline)
     self-consistency-Nx  N sampled solo attempts + majority vote (compute-matched;
                           only meaningful with PSIDUCK_TEMPERATURE > 0, since at
                           temperature 0 every sample is identical)
+
+Latent variants (--latent-variant; see psiduck/pipeline.py for the full rationale):
+    full     original design: 4 delegates, each re-pools to a single vector (default)
+    shallow  1 compression hop; delegate role tags are literal embeddings, never re-pooled
+    minimal  0 delegates; just encode(problem) -> decode_answer()
 """
 
 from __future__ import annotations
@@ -60,6 +68,11 @@ def _build_backbone():
         f"(hidden size {model.hidden_size}, dtype={settings.dtype!r}, "
         f"latent_layer={settings.latent_layer!r}, latent_pooling={settings.latent_pooling!r}, "
         f"target_embed_norm={model.target_embed_norm:.2f})"
+    )
+    print(
+        f"Latent config: variant={settings.latent_variant!r}, "
+        f"decode_reasoning={settings.decode_reasoning}, "
+        f"answer_max_new_tokens={settings.answer_max_new_tokens}"
     )
     return model, settings
 
@@ -187,9 +200,57 @@ def main(argv: list[str] | None = None) -> int:
         "If its answers agree with the real latent answers most of the time, "
         "that's evidence the decoder isn't actually using the latent content.",
     )
+    parser.add_argument(
+        "--latent-variant",
+        choices=["full", "shallow", "minimal", "hybrid"],
+        default=None,
+        help="'full' (default): 4 delegates, each re-pools to a single vector "
+        "(5 lossy compression hops total). 'shallow': 1 compression hop only "
+        "-- delegate role tags are literal embeddings, never re-pooled. "
+        "'minimal': 0 delegates -- just encode(problem) -> decode_answer(). "
+        "'hybrid': decoder sees the REAL problem text (uncompressed, same as "
+        "baseline) PLUS the 4 delegates' latent contributions appended -- "
+        "tests whether latent specialist input helps/hurts on an intact "
+        "problem, instead of asking compression to carry the whole problem. "
+        "Overrides PSIDUCK_LATENT_VARIANT.",
+    )
+    parser.add_argument(
+        "--decode-reasoning",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Let decode_answer work step-by-step before \\boxed{N} instead "
+        "of being forced straight to a bare digit with zero computation "
+        "room. This trades away the token/FLOPs efficiency story (reasoning "
+        "output runs close to the baseline's token budget) for a shot at "
+        "accuracy -- use --no-decode-reasoning to force it off regardless of "
+        "PSIDUCK_DECODE_REASONING left set in your shell from an earlier run.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Only run the first N problems from --dataset (applies to --all "
+        "and --list). Useful to keep a demo run short on a larger set like "
+        "aime24 without waiting through all ~30 problems.",
+    )
+    parser.add_argument(
+        "--answer-max-new-tokens",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Max tokens for the latent pipeline's final decode. Overrides "
+        "PSIDUCK_ANSWER_MAX_NEW_TOKENS (default 256).",
+    )
     args = parser.parse_args(argv)
 
     problems = SAMPLE_PROBLEMS if args.dataset == "sample" else load_problem_set(args.dataset)
+    if args.limit is not None:
+        # No difficulty ranking exists in the fetched data (AimeProblem.difficulty
+        # is just "easy" | "aime", not a numeric score) -- this is the first N
+        # problems from the set as HF returns them, not "the hardest N". Say so
+        # if you present it: "10 real AIME problems", not "the 10 hardest".
+        problems = problems[: args.limit]
 
     if args.list:
         for i, p in enumerate(problems):
@@ -197,7 +258,31 @@ def main(argv: list[str] | None = None) -> int:
                   f"{shorten(p.statement, width=70)}")
         return 0
 
+    # CLI flags override env-derived settings when explicitly passed.
+    latent_variant = args.latent_variant if args.latent_variant is not None else None
+    decode_reasoning = args.decode_reasoning if args.decode_reasoning is not None else None
+    answer_max_new_tokens_override = args.answer_max_new_tokens
+
     model, settings = _build_backbone()
+    if latent_variant is not None or decode_reasoning is not None or answer_max_new_tokens_override is not None:
+        from dataclasses import replace
+
+        settings = replace(
+            settings,
+            latent_variant=latent_variant if latent_variant is not None else settings.latent_variant,
+            decode_reasoning=decode_reasoning if decode_reasoning is not None else settings.decode_reasoning,
+            answer_max_new_tokens=(
+                answer_max_new_tokens_override
+                if answer_max_new_tokens_override is not None
+                else settings.answer_max_new_tokens
+            ),
+        )
+        print(
+            f"CLI overrides applied: variant={settings.latent_variant!r}, "
+            f"decode_reasoning={settings.decode_reasoning}, "
+            f"answer_max_new_tokens={settings.answer_max_new_tokens}"
+        )
+
     n_self_consistency = (
         args.self_consistency
         if args.self_consistency is not None
@@ -224,6 +309,8 @@ def main(argv: list[str] | None = None) -> int:
             answer_max_new_tokens=settings.answer_max_new_tokens,
             n_self_consistency=n_self_consistency,
             run_scramble_ablation=args.ablation_scramble,
+            latent_variant=settings.latent_variant,
+            decode_reasoning=settings.decode_reasoning,
         )
         _print_comparison(cmp, model.num_parameters)
         return cmp
@@ -246,6 +333,9 @@ def main(argv: list[str] | None = None) -> int:
             answer_max_new_tokens=settings.answer_max_new_tokens,
             n_self_consistency=n_self_consistency,
             num_params=model.num_parameters,
+            latent_variant=settings.latent_variant,
+            decode_reasoning=settings.decode_reasoning,
+            run_scramble_ablation=args.ablation_scramble,
         )
     else:
         comparisons = [run_one(statement, expected) for statement, expected in selected]
