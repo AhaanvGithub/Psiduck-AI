@@ -46,6 +46,11 @@ def choose_n(sec_per_problem: dict[str, float], budget_s: float = 13 * 3600,
     return max(step, min(cap, n))
 
 
+def problem_seed(seed: int, dataset: str, idx: int) -> int:
+    """Per-problem sampling seed: same for every config (paired), stable across resumes."""
+    return seed * 1_000_003 + (0 if dataset == "gsm8k" else 500_000) + idx
+
+
 def append_jsonl(path: Path, rec: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
@@ -152,7 +157,7 @@ class Runner:
                 if i in recs:
                     continue
                 self.set_state(f"smoke/{cfg}", f"running {i + 1}/{SMOKE_N}")
-                r = solver.solve(p.question)
+                r = solver.solve(p.question, seed=problem_seed(self.settings.seed, "gsm8k", i))
                 rec = {"idx": i, "wall_s": r.wall_s, **r.compute, "hit_token_cap": r.detail.get("hit_token_cap")}
                 append_jsonl(path, rec)
                 recs[i] = rec
@@ -285,7 +290,7 @@ class Runner:
             with attempts_path.open("a") as f:
                 f.write(f"{idx}\n")
             try:
-                r = solver.solve(p.question)
+                r = solver.solve(p.question, seed=problem_seed(self.settings.seed, dataset, idx))
                 rec = {**base, "prediction": r.prediction, "correct": is_correct(r.prediction, p.answer),
                        "wall_s": round(r.wall_s, 3), **r.compute, **r.detail, "text": r.text}
                 consecutive = 0

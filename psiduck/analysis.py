@@ -155,8 +155,11 @@ def build_summary(results_dir: Path, plan: Optional[dict]) -> str:
     if plan:
         s = plan.get("settings", {})
         lines += [
-            f"- Model: `{s.get('model_name')}` ({s.get('quantization')}), greedy, seed {s.get('seed')}, "
-            f"thinking disabled, max new tokens {s.get('max_new_tokens')}, latent steps/delegate {s.get('latent_steps')}.",
+            f"- Model: `{s.get('model_name')}` ({s.get('quantization')}), "
+            + (f"sampling at temperature {s.get('temperature')}, top-p {s.get('top_p')}"
+               if (s.get("temperature") or 0) > 0 else "greedy decoding")
+            + f", seed {s.get('seed')}, thinking {'on' if s.get('thinking', False) else 'off'}, "
+            f"max new tokens {s.get('max_new_tokens')}, latent steps/delegate {s.get('latent_steps')}.",
             f"- GSM8K: first N = {n} problems of the test split after a seed-42 shuffle (pre-registered in EVAL_PLAN.md).",
             "- Problems that raised an error count as incorrect.",
             "",

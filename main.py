@@ -40,10 +40,11 @@ def main(argv: list[str] | None = None) -> int:
     from psiduck.backbone import SharedModel
 
     print(f"Loading {settings.model_name} ({settings.quantization}) ...")
-    model = SharedModel(settings.model_name, settings.quantization, settings.seed)
+    model = SharedModel(settings.model_name, settings.quantization, settings.seed, thinking=settings.thinking,
+                        temperature=settings.temperature, top_p=settings.top_p)
     print(f"\nProblem: {question}\nGold: {gold}\n")
     for cfg in args.configs.split(","):
-        r = build_solver(cfg, model, settings).solve(question)
+        r = build_solver(cfg, model, settings).solve(question, seed=settings.seed)
         verdict = "" if gold is None else ("  CORRECT" if is_correct(r.prediction, gold) else "  wrong")
         print(f"=== {cfg} ===\n{r.text}\n")
         print(f"prediction={r.prediction}{verdict}  wall={r.wall_s:.1f}s  {r.compute}  {r.detail}\n")

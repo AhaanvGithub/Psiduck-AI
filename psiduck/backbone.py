@@ -10,7 +10,8 @@ Primitives (also implemented by tests/fakes.py):
     new_session()              empty KV cache
     feed_tokens(s, ids)        run text tokens through the model -> last hidden
     feed_latent(s, h)          feed a hidden state back as the next input -> last hidden
-    next_token(h)              greedy token from a hidden state
+    next_token(h)              next token from a hidden state (greedy, or sampled)
+    reseed(seed)               reset the sampling RNG (one seed per problem)
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ class Session:
 
 
 class SharedModel:
-    def __init__(self, model_name: str, quantization: str = "nf4", seed: int = 42):
+    def __init__(self, model_name: str, quantization: str = "nf4", seed: int = 42, *,
+                 thinking: bool = True, temperature: float = 0.6, top_p: float = 0.95):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
@@ -54,6 +56,11 @@ class SharedModel:
         self.model_name = model_name
         self.quantization = quantization
         self.meter = ComputeMeter()
+        self.thinking = thinking
+        self.temperature = temperature
+        self.top_p = top_p
+        self.generator = torch.Generator(device=self.device)
+        self.generator.manual_seed(seed)
 
         self.turn_end_ids = self.tokenizer("<|im_end|>\n", add_special_tokens=False).input_ids
         self.eos_ids = {
@@ -72,7 +79,7 @@ class SharedModel:
             [{"role": "user", "content": text}],
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=False,
+            enable_thinking=self.thinking,
         )
         return self.tokenizer(s, add_special_tokens=False).input_ids
 
@@ -110,9 +117,22 @@ class SharedModel:
         self.meter.latent_steps += 1
         return h_next
 
+    def reseed(self, seed: int) -> None:
+        self.generator.manual_seed(seed)
+
     def next_token(self, h) -> int:
-        with self.torch.inference_mode():
-            return int(self.model.lm_head(h).argmax(dim=-1).item())
+        torch = self.torch
+        with torch.inference_mode():
+            logits = self.model.lm_head(h).float()[0]
+            if self.temperature <= 0:
+                return int(logits.argmax().item())
+            probs = torch.softmax(logits / self.temperature, dim=-1)
+            # Nucleus (top-p) filtering, same rule as Hugging Face's TopPLogitsWarper.
+            sorted_p, sorted_i = probs.sort(descending=True)
+            keep = sorted_p.cumsum(0) - sorted_p < self.top_p
+            sorted_p = sorted_p * keep
+            choice = torch.multinomial(sorted_p / sorted_p.sum(), 1, generator=self.generator)
+            return int(sorted_i[choice].item())
 
     @staticmethod
     def cosine(a, b) -> float:

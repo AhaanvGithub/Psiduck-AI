@@ -20,7 +20,7 @@ Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced
 1. **Specialist delegates run one after another**: algebra → counting → number theory → geometry and verification. Each one reads a short prompt naming its role and the problem.
 2. **Latent steps.** After its prompt, each delegate takes 30 latent steps. The final-layer hidden state at the last position is rescaled to the norm of a typical input embedding and fed back in as the next input. No token is sampled. Each step adds one position to the shared KV cache.
 3. **Shared KV cache.** Nothing is summarized or pooled between agents. Every later agent attends to every earlier agent's prompt and latent positions.
-4. **Decoder.** A final decoder prompt is appended, and the model generates the answer greedily. It uses the same token cap and the same answer instruction as the single-model baseline.
+4. **Decoder.** A final decoder prompt is appended, and the model generates the answer. It uses the same decoding settings, token cap and answer instruction as the single-model baseline: Qwen3 thinking mode on, temperature 0.6, top-p 0.95, 2,048 tokens, all matching LatentMAS's reference setup.
 
 The **baseline** is the same model, answering the same prompt with English chain-of-thought.
 

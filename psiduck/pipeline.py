@@ -1,14 +1,14 @@
 """The two solvers compared in the eval.
 
-BaselineSolver   one model, English chain-of-thought, greedy, capped at max_new_tokens.
+BaselineSolver   one model, English chain-of-thought, capped at max_new_tokens.
 
 LatentSolver     four specialist delegates run sequentially on one shared KV cache.
                  Each delegate reads its prompt, then takes `latent_steps` latent
                  steps: the last hidden state is fed back as the next input instead
                  of decoding a token. Nothing is decoded until the final decoder,
                  which reads its prompt on top of the full cache (every delegate's
-                 prompt and latent thoughts) and generates the answer greedily under
-                 the same max_new_tokens cap as the baseline.
+                 prompt and latent thoughts) and generates the answer under the same
+                 decoding settings and max_new_tokens cap as the baseline.
 
                  Optional early exit: a delegate stops its latent steps once two
                  consecutive hidden states have cosine similarity >= early_exit_cos.
@@ -33,7 +33,7 @@ class SolveResult:
     detail: dict = field(default_factory=dict)
 
 
-def greedy_generate(backbone, session, prompt_ids: list[int], max_new_tokens: int) -> list[int]:
+def generate(backbone, session, prompt_ids: list[int], max_new_tokens: int) -> list[int]:
     h = backbone.feed_tokens(session, prompt_ids)
     backbone.meter.prompt_tokens += len(prompt_ids)
     out: list[int] = []
@@ -55,12 +55,14 @@ class BaselineSolver:
         self.backbone = backbone
         self.max_new_tokens = max_new_tokens
 
-    def solve(self, question: str) -> SolveResult:
+    def solve(self, question: str, seed: Optional[int] = None) -> SolveResult:
         b = self.backbone
         b.meter.reset()
+        if seed is not None:
+            b.reseed(seed)
         t0 = time.perf_counter()
         s = b.new_session()
-        ids = greedy_generate(b, s, b.chat_turn_ids(baseline_prompt(question)), self.max_new_tokens)
+        ids = generate(b, s, b.chat_turn_ids(baseline_prompt(question)), self.max_new_tokens)
         text = b.decode(ids)
         return SolveResult(
             text, extract_answer(text), time.perf_counter() - t0, b.meter.snapshot(),
@@ -95,9 +97,11 @@ class LatentSolver:
             h = h_next
         return self.latent_steps
 
-    def solve(self, question: str) -> SolveResult:
+    def solve(self, question: str, seed: Optional[int] = None) -> SolveResult:
         b = self.backbone
         b.meter.reset()
+        if seed is not None:
+            b.reseed(seed)
         t0 = time.perf_counter()
         s = b.new_session()
         steps_per_delegate = []
@@ -108,7 +112,7 @@ class LatentSolver:
             steps_per_delegate.append(self._think(s, h))
             b.feed_tokens(s, b.turn_end_ids)
             b.meter.prompt_tokens += len(b.turn_end_ids)
-        ids = greedy_generate(b, s, b.chat_turn_ids(decoder_prompt(question)), self.max_new_tokens)
+        ids = generate(b, s, b.chat_turn_ids(decoder_prompt(question)), self.max_new_tokens)
         text = b.decode(ids)
         return SolveResult(
             text, extract_answer(text), time.perf_counter() - t0, b.meter.snapshot(),

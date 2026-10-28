@@ -65,6 +65,9 @@ class FakeBackbone:
         s._gen = n + 1
         return self.answer_ids[n] if n < len(self.answer_ids) else EOS
 
+    def reseed(self, seed: int) -> None:
+        self.last_seed = seed
+
     @staticmethod
     def cosine(a, b) -> float:
         dot = sum(x * y for x, y in zip(a, b))

@@ -19,7 +19,8 @@ from psiduck.runner import Runner  # noqa: E402
 def make_backbone(settings: Settings):
     from psiduck.backbone import SharedModel
 
-    return SharedModel(settings.model_name, settings.quantization, settings.seed)
+    return SharedModel(settings.model_name, settings.quantization, settings.seed, thinking=settings.thinking,
+                       temperature=settings.temperature, top_p=settings.top_p)
 
 
 def main() -> int:
