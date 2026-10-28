@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
-# Psiduck-AI eval on a RunPod GPU pod (A6000, bf16). One command, runs detached.
+# Psiduck-AI eval on a RunPod GPU pod (bf16). One command, runs detached.
 #
 #   cd /workspace
 #   git clone -b v2-latent-eval https://github.com/AhaanvGithub/Psiduck-AI.git
 #   cd Psiduck-AI && PSIDUCK_NTFY_TOPIC=<your topic> bash run_runpod.sh
 #
-# The run survives closing the browser tab. Spend guard: the pod is stopped
-# PSIDUCK_MAX_POD_HOURS after launch no matter what, and PSIDUCK_GRACE_HOURS
-# after the run finishes (time to download results). Re-running this script
-# after a crash resumes where it stopped.
+# The run survives closing the browser tab. The pod is NOT stopped automatically
+# unless you set PSIDUCK_MAX_POD_HOURS; stop it yourself after downloading the
+# results. Re-running this script after a crash resumes where it stopped.
 set -u
 cd "$(dirname "$0")"
 REPO="$(pwd)"
 mkdir -p results
 
 export PSIDUCK_QUANT="${PSIDUCK_QUANT:-bf16}"
-export PSIDUCK_GSM8K_BUDGET_HOURS="${PSIDUCK_GSM8K_BUDGET_HOURS:-12}"
+export PSIDUCK_GSM8K_BUDGET_HOURS="${PSIDUCK_GSM8K_BUDGET_HOURS:-6}"
 export HF_HOME="$REPO/.hf_cache"
-MAX_POD_HOURS="${PSIDUCK_MAX_POD_HOURS:-20}"
-GRACE_HOURS="${PSIDUCK_GRACE_HOURS:-3}"
+MAX_POD_HOURS="${PSIDUCK_MAX_POD_HOURS:-}"  # empty = never stop the pod automatically
 
 if [ -z "${PSIDUCK_NTFY_TOPIC:-}" ]; then
     if [ -s results/ntfy_topic.txt ]; then
@@ -51,19 +49,21 @@ if [ -z "${PSIDUCK_DETACHED:-}" ]; then
     echo " Started in the background (pid $!)."
     echo " ntfy topic: $PSIDUCK_NTFY_TOPIC   https://ntfy.sh/$PSIDUCK_NTFY_TOPIC"
     echo " Watch:  tail -f results/console.log      Status: cat results/STATUS.txt"
-    echo " Pod auto-stops ${MAX_POD_HOURS} h from now at the latest."
+    if [ -n "$MAX_POD_HOURS" ]; then echo " Pod auto-stops ${MAX_POD_HOURS} h from now."; else echo " No auto-stop: stop the pod yourself when done."; fi
     echo "=================================================================="
     exit 0
 fi
 
-# Hard spend cap.
-( sleep "$(( MAX_POD_HOURS * 3600 ))"; stop_pod "Spend cap: ${MAX_POD_HOURS} h reached." ) &
-ntfy "Psiduck eval starting on $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1). Hard stop in ${MAX_POD_HOURS} h."
+# Optional hard spend cap.
+if [ -n "$MAX_POD_HOURS" ]; then
+    ( sleep "$(( MAX_POD_HOURS * 3600 ))"; stop_pod "Spend cap: ${MAX_POD_HOURS} h reached." ) &
+fi
+ntfy "Psiduck eval starting on $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)."
 
 if [ ! -x .venv/bin/python ]; then
     python3 -m venv .venv || { ntfy "venv creation failed" high; exit 1; }
     .venv/bin/pip install -q --upgrade pip
-    .venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cu126
+    .venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cu128
     .venv/bin/pip install -q -r requirements.txt || { ntfy "pip install failed" high; exit 1; }
 fi
 .venv/bin/python -c "import torch; assert torch.cuda.is_available(); print(torch.__version__, torch.cuda.get_device_name(0))" \
@@ -84,6 +84,4 @@ done
 [ "$code" -ne 0 ] && ntfy "Gave up after 10 restarts. Check results/run.log." urgent
 
 tar czf /workspace/psiduck_results.tar.gz results SUMMARY.md README.md EVAL_PLAN.md 2> /dev/null
-ntfy "Results packed at /workspace/psiduck_results.tar.gz. Download it within ${GRACE_HOURS} h (Jupyter file browser), then the pod stops." high
-sleep "$(( GRACE_HOURS * 3600 ))"
-stop_pod "Grace period over."
+ntfy "DONE. Results packed at /workspace/psiduck_results.tar.gz. Download it, then STOP THE POD (it keeps billing until you do)." urgent

@@ -49,7 +49,7 @@ The results below are generated from [`SUMMARY.md`](SUMMARY.md) by `analyze.py`.
 
 ## Running the benchmark on a rented GPU (RunPod)
 
-The official run uses one RTX A6000 (48 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
+The official run uses one RTX 5090 (32 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
 
 ```bash
 cd /workspace
@@ -61,7 +61,7 @@ The script does the following:
 - Installs dependencies and caches the model and data.
 - Runs the same smoke-test, lock-N and full-run sequence in the background, so you can close the tab.
 - Packs the results into `/workspace/psiduck_results.tar.gz`.
-- Stops the pod automatically 3 h after finishing, or 20 h after launch at the latest.
+- Sends an ntfy ping when done. It does not stop the pod; stop it yourself after downloading the results, because the pod bills until stopped.
 
 ## Setup (Windows, NVIDIA GPU)
 
