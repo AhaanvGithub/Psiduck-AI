@@ -26,3 +26,15 @@ htmlcov/
 # Editor / OS
 .DS_Store
 *.swp
+
+# Model weights / caches (never commit)
+*.gguf
+*.pt
+*.pth
+models/
+
+# Eval outputs and local notes
+data/
+results/
+STATUS.txt
+ARCHITECTURE.md
