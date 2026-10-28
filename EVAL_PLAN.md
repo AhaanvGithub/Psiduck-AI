@@ -6,7 +6,7 @@ Written on 2026-10-27, before any smoke test or full run. Nothing below may be c
 
 **Amendment 2, 2026-10-28, before any accuracy was viewed.** Decoding now matches the LatentMAS reference code (`run.py` defaults and `models.py`, checked directly): Qwen3 thinking mode on (the chat-template default, which LatentMAS never disables), temperature 0.6, top-p 0.95 (§3). The reason is to make the baseline comparable to the published LatentMAS numbers. Nothing else changed. A 1-hour test of the previous settings (greedy, thinking off) was started on the pod and stopped before any config finished. Its files were moved to `results_superseded/` and are not part of the reported results.
 
-**Amendment 3, 2026-10-28, before any accuracy was viewed.** The A6000 pod stopped and its disk was lost before any config finished, so no results exist from it. The run moves to a single RunPod **RTX 5090 (32 GB)**, still with Qwen3-8B in bf16. The GSM8K time budget drops from 12 h to **6 h** to fit the remaining rental money and an 8-hour supervised window. Nothing else changed. If a 5090 is unavailable, any GPU with ≥ 24 GB may be used instead; the GPU actually used is recorded in `results/plan_lock.json`.
+**Amendment 3, 2026-10-28, before any accuracy was viewed.** The A6000 pod stopped and its disk was lost before any config finished, so no results exist from it. The run moves to a single RunPod **RTX 5090 (32 GB)**, still with Qwen3-8B in bf16. The GSM8K time budget drops from 12 h to **10 h** to fit the remaining rental money (about $18 at $1.19/h, leaving room for setup and AIME). Nothing else changed. If a 5090 is unavailable, any GPU with ≥ 24 GB may be used instead; the GPU actually used is recorded in `results/plan_lock.json`.
 
 ## 1. Model and precision
 - **Primary:** `Qwen/Qwen3-8B` in **bf16** (no quantization), on one NVIDIA RTX 5090 (32 GB), rented on RunPod and launched with `run_runpod.sh`.
@@ -37,7 +37,7 @@ The decoder and the baseline use the identical answer instruction (`psiduck/role
 ## 5. Problem subset rule
 1. Shuffle the GSM8K test split with `random.Random(42).shuffle`.
 2. Smoke test: run the first 3 shuffled problems for each config, after one untimed warm-up generation, and record **timing only**. Smoke records contain no predictions or correctness.
-3. N = floor(6 h ÷ (sum over configs of mean seconds per problem) ÷ 50) × 50, capped at 1,319, with a minimum of 50. The 6 h budget comes from the remaining rental money (about $1.19/h) and the 8-hour supervised window.
+3. N = floor(10 h ÷ (sum over configs of mean seconds per problem) ÷ 50) × 50, capped at 1,319, with a minimum of 50. The 10 h budget comes from the remaining rental money (about $18 at $1.19/h).
 4. Both configs run the same first N shuffled problems.
 
 <!-- N:START -->

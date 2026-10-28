@@ -14,7 +14,7 @@ REPO="$(pwd)"
 mkdir -p results
 
 export PSIDUCK_QUANT="${PSIDUCK_QUANT:-bf16}"
-export PSIDUCK_GSM8K_BUDGET_HOURS="${PSIDUCK_GSM8K_BUDGET_HOURS:-6}"
+export PSIDUCK_GSM8K_BUDGET_HOURS="${PSIDUCK_GSM8K_BUDGET_HOURS:-10}"
 export HF_HOME="$REPO/.hf_cache"
 MAX_POD_HOURS="${PSIDUCK_MAX_POD_HOURS:-}"  # empty = never stop the pod automatically
 
