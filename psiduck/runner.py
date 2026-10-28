@@ -28,7 +28,6 @@ from psiduck.config import Settings
 from psiduck.hf_env import REPO_ROOT
 from psiduck.pipeline import BaselineSolver, build_solver
 
-GSM8K_BUDGET_S = 13 * 3600
 SMOKE_N = 3
 CONFIGS = ("latent", "baseline")
 JOBS = (("gsm8k", "latent"), ("gsm8k", "baseline"), ("aime", "latent"), ("aime", "baseline"))
@@ -39,7 +38,7 @@ MIN_N_PRIMARY = 200  # below this, Qwen3-8B counts as "unusably slow" (pre-regis
 N_START, N_END = "<!-- N:START -->", "<!-- N:END -->"
 
 
-def choose_n(sec_per_problem: dict[str, float], budget_s: float = GSM8K_BUDGET_S,
+def choose_n(sec_per_problem: dict[str, float], budget_s: float = 13 * 3600,
              cap: int = 1319, step: int = 50) -> int:
     """Largest multiple of `step` such that every config runs N problems in budget_s."""
     total = sum(sec_per_problem.values())
@@ -194,13 +193,14 @@ class Runner:
             fallback_reason = f"out of memory with {self.settings.model_name}: {e}"[:300]
             self._switch_to_fallback(fallback_reason)
             sec = self.smoke()
-        n = choose_n(sec)
+        budget_s = self.settings.gsm8k_budget_hours * 3600
+        n = choose_n(sec, budget_s=budget_s)
         if n < MIN_N_PRIMARY and self.settings.model_name != FALLBACK_MODEL:
             fallback_reason = (f"{self.settings.model_name} too slow: N would be {n} < {MIN_N_PRIMARY} "
                                f"(smoke s/problem {sec})")
             self._switch_to_fallback(fallback_reason)
             sec = self.smoke()
-            n = choose_n(sec)
+            n = choose_n(sec, budget_s=budget_s)
         import torch
         import transformers
 
@@ -212,7 +212,7 @@ class Runner:
         plan = {
             "n": n,
             "smoke_sec_per_problem": sec,
-            "gsm8k_budget_hours": GSM8K_BUDGET_S / 3600,
+            "gsm8k_budget_hours": self.settings.gsm8k_budget_hours,
             "settings": self.settings.as_dict(),
             "fallback_reason": fallback_reason,
             "locked_at": datetime.now().isoformat(timespec="seconds"),

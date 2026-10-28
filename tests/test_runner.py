@@ -49,7 +49,7 @@ def fake_env(tmp_path, monkeypatch):
         eval_plan=plan, readme=readme, notify=lambda t, m, **k: sent.append(m) or True,
         status_interval=3600, load_dataset=load,
     )
-    monkeypatch.setattr(runner, "choose_n", lambda sec: 50)
+    monkeypatch.setattr(runner, "choose_n", lambda sec, **k: 50)
     monkeypatch.setattr(runner, "MIN_N_PRIMARY", 0)
     return r, sent, tmp_path
 
@@ -79,7 +79,7 @@ def test_too_slow_primary_falls_back_before_locking(fake_env, monkeypatch):
     r, sent, tmp = fake_env
     monkeypatch.setattr(runner, "MIN_N_PRIMARY", 100)
     calls = iter([50, 300])
-    monkeypatch.setattr(runner, "choose_n", lambda sec: next(calls))
+    monkeypatch.setattr(runner, "choose_n", lambda sec, **k: next(calls))
     assert r.run() == 0
     plan = json.loads((tmp / "results" / "plan_lock.json").read_text())
     assert plan["settings"]["model_name"] == runner.FALLBACK_MODEL

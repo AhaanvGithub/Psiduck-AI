@@ -22,6 +22,7 @@ class Settings:
     latent_steps: int = 30  # per delegate
     early_exit_cos: Optional[float] = None  # None = always run all latent steps
     seed: int = 42
+    gsm8k_budget_hours: float = 13.0  # time budget used to pick N from smoke timings
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -33,6 +34,7 @@ class Settings:
             latent_steps=int(os.environ.get("PSIDUCK_LATENT_STEPS", d.latent_steps)),
             early_exit_cos=_opt_float(os.environ.get("PSIDUCK_EARLY_EXIT_COS")),
             seed=int(os.environ.get("PSIDUCK_SEED", d.seed)),
+            gsm8k_budget_hours=float(os.environ.get("PSIDUCK_GSM8K_BUDGET_HOURS", d.gsm8k_budget_hours)),
         )
 
     def as_dict(self) -> dict:

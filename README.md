@@ -47,6 +47,22 @@ The results below are generated from [`SUMMARY.md`](SUMMARY.md) by `analyze.py`.
 - *Generated tokens* counts only text the model writes. The latent pipeline also does 4 × 30 latent steps and reads four extra prompts, so the *forward passes* column is the fairer compute comparison.
 - The comparison is latent vs a single-model baseline on the same model, problems and token cap. It is not a comparison with the hackathon version of Psiduck.
 
+## Running the benchmark on a rented GPU (RunPod)
+
+The official run uses one RTX A6000 (48 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
+
+```bash
+cd /workspace
+git clone -b v2-latent-eval https://github.com/AhaanvGithub/Psiduck-AI.git
+cd Psiduck-AI && PSIDUCK_NTFY_TOPIC=<your-topic> bash run_runpod.sh
+```
+
+The script does the following:
+- Installs dependencies and caches the model and data.
+- Runs the same smoke-test, lock-N and full-run sequence in the background, so you can close the tab.
+- Packs the results into `/workspace/psiduck_results.tar.gz`.
+- Stops the pod automatically 3 h after finishing, or 20 h after launch at the latest.
+
 ## Setup (Windows, NVIDIA GPU)
 
 ```powershell
@@ -106,7 +122,8 @@ psiduck/
   config.py     settings (defaults = the pre-registered values)
 main.py             try one problem
 analyze.py          build SUMMARY.md
-run_overnight.ps1   the full benchmark
+run_overnight.ps1   the full benchmark (Windows laptop)
+run_runpod.sh       the full benchmark (RunPod / Linux GPU)
 scripts/            run_eval.py, prefetch.py
 tests/              pytest suite
 ```

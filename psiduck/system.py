@@ -1,4 +1,4 @@
-"""Windows keep-awake, battery check, and ntfy.sh notifications.
+"""Windows keep-awake, battery check, and ntfy.sh notifications (the first two are no-ops on Linux).
 
 Nothing in here may crash the run: every call swallows its own errors.
 """
@@ -6,6 +6,7 @@ Nothing in here may crash the run: every call swallows its own errors.
 from __future__ import annotations
 
 import ctypes
+import os
 import secrets
 import sys
 import urllib.request
@@ -60,8 +61,13 @@ def on_battery() -> bool:
 
 
 def ntfy_topic(path: Path) -> str:
-    """Read the run's ntfy topic, creating a random one on first use."""
+    """The run's ntfy topic: $PSIDUCK_NTFY_TOPIC, else the saved one, else a new random one."""
     try:
+        env = os.environ.get("PSIDUCK_NTFY_TOPIC", "").strip()
+        if env:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(env + "\n", encoding="utf-8")
+            return env
         if path.exists():
             t = path.read_text(encoding="utf-8").strip()
             if t:
