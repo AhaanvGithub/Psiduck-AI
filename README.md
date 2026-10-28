@@ -49,7 +49,7 @@ The results below are generated from [`SUMMARY.md`](SUMMARY.md) by `analyze.py`.
 
 ## Running the benchmark on a rented GPU (RunPod)
 
-The official run uses one RTX 5090 (32 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
+The official run uses one A40 (48 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
 
 ```bash
 cd /workspace
