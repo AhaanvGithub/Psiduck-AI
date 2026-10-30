@@ -4,7 +4,7 @@
 
 Psiduck-AI is a multi-agent reasoning system in which every agent runs on one shared open-weights model. The agents never write messages to each other. Each specialist "thinks" by feeding its own hidden state back into the model as the next input, and every agent's prompt and latent thoughts accumulate in one shared KV cache. Only the final decoder produces text.
 
-Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced the original communication channel with a stronger KV-cache-based latent design (credited below) and built a pre-registered benchmark to test whether it actually helps.
+Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced the original communication channel with a stronger KV-cache-based latent design adapted from [LatentMAS](https://arxiv.org/abs/2511.20639) (Zou et al., 2025) and built a pre-registered benchmark to test whether it actually helps.
 
 ## How it works
 
@@ -20,7 +20,7 @@ Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced
 1. **Specialist delegates run one after another**: algebra → counting → number theory → geometry and verification. Each one reads a short prompt naming its role and the problem.
 2. **Latent steps.** After its prompt, each delegate takes 30 latent steps. The final-layer hidden state at the last position is rescaled to the norm of a typical input embedding and fed back in as the next input. No token is sampled. Each step adds one position to the shared KV cache.
 3. **Shared KV cache.** Nothing is summarized or pooled between agents. Every later agent attends to every earlier agent's prompt and latent positions.
-4. **Decoder.** A final decoder prompt is appended, and the model generates the answer. It uses the same decoding settings, token cap and answer instruction as the single-model baseline: Qwen3 thinking mode on, temperature 0.6, top-p 0.95, 2,048 tokens, all matching LatentMAS's reference setup.
+4. **Decoder.** A final decoder prompt is appended, and the model generates the answer. It uses the same decoding settings, token cap and answer instruction as the single-model baseline: Qwen3 thinking mode on, temperature 0.6, top-p 0.95, 2,048 tokens.
 
 The **baseline** is the same model, answering the same prompt with English chain-of-thought.
 
@@ -169,10 +169,6 @@ run_runpod.sh       the full benchmark (RunPod / Linux GPU)
 scripts/            run_eval.py, prefetch.py
 tests/              pytest suite
 ```
-
-## Acknowledgements
-
-Psiduck-AI v2's latent pipeline was improved by adopting the latent-collaboration architecture of **LatentMAS** ([Zou et al., 2025, "Latent Collaboration in Multi-Agent Systems"](https://arxiv.org/abs/2511.20639); [code](https://github.com/Gen-Verse/LatentMAS)). LatentMAS contributes the core mechanism: sequential agents sharing one KV cache and taking latent steps from fed-back hidden states. Psiduck adapts it with its own four specialist delegates (algebra, counting, number theory, geometry and verification), a fixed 30 latent steps per delegate, and norm-matched latent inputs. An optional early-exit variant stops a delegate's latent steps once its hidden state converges.
 
 ## License
 
