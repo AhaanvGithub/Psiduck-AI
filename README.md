@@ -95,7 +95,7 @@ The official run uses one A40 (48 GB), with Qwen3-8B in bf16. In a RunPod pod's 
 
 ```bash
 cd /workspace
-git clone -b v2-latent-eval https://github.com/AhaanvGithub/Psiduck-AI.git
+git clone https://github.com/ahaanfr/Psiduck-AI.git
 cd Psiduck-AI && PSIDUCK_NTFY_TOPIC=<your-topic> bash run_runpod.sh
 ```
 

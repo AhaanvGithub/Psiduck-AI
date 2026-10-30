@@ -2,7 +2,7 @@
 # Psiduck-AI eval on a RunPod GPU pod (bf16). One command, runs detached.
 #
 #   cd /workspace
-#   git clone -b v2-latent-eval https://github.com/AhaanvGithub/Psiduck-AI.git
+#   git clone https://github.com/ahaanfr/Psiduck-AI.git
 #   cd Psiduck-AI && PSIDUCK_NTFY_TOPIC=<your topic> bash run_runpod.sh
 #
 # The run survives closing the browser tab. The pod is NOT stopped automatically
