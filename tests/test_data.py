@@ -36,6 +36,14 @@ def test_aime_combines_both_years(tmp_path):
     assert probs[0].problem_id.startswith("aime24") and probs[-1].problem_id.startswith("aime25")
 
 
+def test_amc23_uses_question_field(tmp_path):
+    def fetch(name):
+        return [{"id": i, "question": f"q{i}", "answer": str(i)} for i in range(40)]
+
+    probs = data.load("amc23", data_dir=tmp_path, fetch=fetch)
+    assert len(probs) == 40 and probs[3].question == "q3" and probs[3].answer == "3"
+
+
 def test_retries_with_backoff(monkeypatch):
     monkeypatch.setattr(data.time, "sleep", lambda s: None)
     attempts = []

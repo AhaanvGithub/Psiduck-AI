@@ -32,6 +32,7 @@ SOURCES = {
     "gsm8k": dict(path="openai/gsm8k", name="main", split="test", expected=1319),
     "aime24": dict(path="HuggingFaceH4/aime_2024", name=None, split="train", expected=30),
     "aime25": dict(path="MathArena/aime_2025", name=None, split="train", expected=30),
+    "amc23": dict(path="math-ai/amc23", name=None, split="test", expected=40),
 }
 
 SAMPLE_PROBLEMS = [
@@ -72,7 +73,7 @@ def _to_problems(name: str, rows: list[dict]) -> list[Problem]:
             if gold is None:
                 raise ValueError(f"{name} row {i}: unparseable answer {r['answer']!r}")
             pid = r.get("id", r.get("problem_idx", i))
-            out.append(Problem(f"{name}-{pid}", r["problem"], gold))
+            out.append(Problem(f"{name}-{pid}", r.get("problem") or r["question"], gold))
     return out
 
 

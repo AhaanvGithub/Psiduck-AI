@@ -170,6 +170,9 @@ def build_summary(results_dir: Path, plan: Optional[dict]) -> str:
         lines += dataset_section("AIME 2024 + 2025 (60 problems)", aime, 60)
         lines.append("AIME results count only if both configs completed all 60 problems (pre-registered).")
         lines.append("")
+    amc = load_results(results_dir, "amc23", None)
+    if amc:
+        lines += dataset_section("Experiment 2: AMC 2023 (40 problems, 4,096-token cap)", amc, 40)
     return "\n".join(lines).rstrip() + "\n"
 
 
