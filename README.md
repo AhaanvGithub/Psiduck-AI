@@ -4,7 +4,7 @@
 
 Psiduck-AI is a multi-agent reasoning system in which every agent runs on one shared open-weights model. The agents never write messages to each other. Each specialist "thinks" by feeding its own hidden state back into the model as the next input, and every agent's prompt and latent thoughts accumulate in one shared KV cache. Only the final decoder produces text.
 
-Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced the original communication channel with a stronger KV-cache-based latent design adapted from [LatentMAS](https://arxiv.org/abs/2511.20639) (Zou et al., 2025) and built a pre-registered benchmark to test whether it actually helps.
+Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced the original communication channel with a stronger KV-cache-based latent design building on [LatentMAS](https://arxiv.org/abs/2511.20639) (Zou et al., 2025) and built a pre-registered benchmark to test whether it actually helps.
 
 ## How it works
 
