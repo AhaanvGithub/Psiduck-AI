@@ -4,7 +4,7 @@
     python main.py --sample 0
     python main.py --gsm8k 5          # the 6th problem of GSM8K test (unshuffled)
 
-The full benchmark lives in run_overnight.ps1 / scripts/run_eval.py.
+The full benchmark lives in scripts/run_eval.py.
 """
 
 from __future__ import annotations

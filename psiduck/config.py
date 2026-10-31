@@ -17,7 +17,7 @@ def _opt_float(v: Optional[str]) -> Optional[float]:
 @dataclass(frozen=True)
 class Settings:
     model_name: str = "Qwen/Qwen3-8B"
-    quantization: str = "nf4"  # "nf4" (bitsandbytes 4-bit) or "bf16"
+    quantization: str = "bf16"  # "bf16", or "nf4" (bitsandbytes 4-bit) for smaller GPUs
     max_new_tokens: int = 2048  # same cap for the baseline and the latent decoder
     latent_steps: int = 30  # per delegate
     early_exit_cos: Optional[float] = None  # None = always run all latent steps
@@ -25,7 +25,7 @@ class Settings:
     temperature: float = 0.6  # 0 = greedy
     top_p: float = 0.95
     seed: int = 42
-    gsm8k_budget_hours: float = 13.0  # time budget used to pick N from smoke timings
+    gsm8k_budget_hours: float = 12.0  # time budget used to pick N from smoke timings
 
     @classmethod
     def from_env(cls) -> "Settings":

@@ -1,4 +1,4 @@
-"""Entry point for the unattended eval (called by run_overnight.ps1).
+"""Entry point for the unattended eval.
 
     python scripts/run_eval.py                  # smoke -> lock N -> all runs -> SUMMARY.md
     python scripts/run_eval.py --allow-battery  # don't wait for AC before the smoke test

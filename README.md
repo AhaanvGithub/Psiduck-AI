@@ -4,7 +4,7 @@
 
 Psiduck-AI is a multi-agent reasoning system in which every agent runs on one shared open-weights model. The agents never write messages to each other. Each specialist "thinks" by feeding its own hidden state back into the model as the next input, and every agent's prompt and latent thoughts accumulate in one shared KV cache. Only the final decoder produces text.
 
-Psiduck started as a hackathon project (2nd place). This repo is v2: we replaced the original communication channel with a stronger KV-cache-based latent design building on [LatentMAS](https://arxiv.org/abs/2511.20639) (Zou et al., 2025) and built a pre-registered benchmark to test whether it actually helps.
+Psiduck-AI's latent design builds on [LatentMAS](https://arxiv.org/abs/2511.20639) (Zou et al., 2025). We evaluated it against a single-model chain-of-thought baseline in a pre-registered benchmark.
 
 ## How it works
 
@@ -83,64 +83,55 @@ AIME results count only if both configs completed all 60 problems (pre-registere
 
 **How to read these numbers**
 - *Generated tokens* counts only text the model writes. The latent pipeline also does 4 × 30 latent steps and reads four extra prompts, so the *forward passes* column is the fairer compute comparison.
-- The comparison is latent vs a single-model baseline on the same model, problems and token cap. It is not a comparison with the hackathon version of Psiduck.
+- The comparison is latent vs a single-model baseline on the same model, problems and token cap.
 - Both configs share the same generated-token cap. The baseline hit that cap more often than latent on GSM8K (the *hit token cap* column), so part of latent's accuracy gain comes from finishing its reasoning within the budget.
 - On AIME, both configs hit the cap on every problem, so AIME at this budget mostly measures truncation, and its difference is not statistically significant.
 - Experiment 2 (AMC 2023, 4,096-token cap) was added after Experiment 1 finished (see `EVAL_PLAN.md`). Its 40 problems are too few for its difference to be statistically significant.
 - This run does not test whether the gain comes from the content of the latent states or simply from the extra latent context.
 
-## Running the benchmark on a rented GPU (RunPod)
+## Setup
 
-The official run uses one A40 (48 GB), with Qwen3-8B in bf16. In a RunPod pod's web terminal:
+Requirements: Python 3.10+ and an NVIDIA GPU with CUDA. Qwen3-8B in bf16 needs about 20 GB of GPU memory; set `PSIDUCK_QUANT=nf4` to load it in 4-bit (bitsandbytes) on smaller GPUs.
 
 ```bash
-cd /workspace
-git clone https://github.com/ahaanfr/Psiduck-AI.git
-cd Psiduck-AI && PSIDUCK_NTFY_TOPIC=<your-topic> bash run_runpod.sh
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
+python scripts/prefetch.py           # caches GSM8K, AIME 24/25 and the model weights
 ```
 
-The script does the following:
-- Installs dependencies and caches the model and data.
-- Runs the same smoke-test, lock-N and full-run sequence in the background, so you can close the tab.
-- Packs the results into `/workspace/psiduck_results.tar.gz`.
-- Sends an ntfy ping when done. It does not stop the pod; stop it yourself after downloading the results, because the pod bills until stopped.
-
-## Setup (Windows, NVIDIA GPU)
-
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cu128
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe scripts\prefetch.py      # caches GSM8K, AIME 24/25 and the model weights
-```
-
-The default model is `Qwen/Qwen3-8B`, loaded in 4-bit NF4 with bitsandbytes, which fits an 8 GB laptop GPU. The Hugging Face cache lives in `.hf_cache/` inside the repo, and benchmark data is cached in `data/`.
+The Hugging Face cache lives in `.hf_cache/` inside the repo, and benchmark data is cached in `data/`.
 
 ## Usage
 
-```powershell
+```bash
 # One problem, both configs
-.\.venv\Scripts\python.exe main.py --problem "Find the remainder when 7^100 is divided by 1000."
+python main.py --problem "Find the remainder when 7^100 is divided by 1000."
 
-# The full benchmark: one command, unattended, resumable
-powershell -ExecutionPolicy Bypass -File .\run_overnight.ps1
+# The full benchmark (GSM8K + AIME): one command, unattended, resumable
+python scripts/run_eval.py
+
+# Experiment 2: AMC 2023 at a 4,096-token cap
+python scripts/run_extra.py amc23 --max-new-tokens 4096
 
 # Rebuild SUMMARY.md and the Results section from results/
-.\.venv\Scripts\python.exe analyze.py
+python analyze.py
 ```
 
-`run_overnight.ps1` does the following:
+`scripts/run_eval.py` does the following:
 - Runs a 3-problem smoke test per config (timing only) and locks N from the timings.
 - Runs the full GSM8K and AIME jobs, appending every finished problem to `results/<dataset>/<config>.jsonl`.
-- Resumes after a crash or reboot when you re-run the same command.
-- Keeps Windows awake and warns when the laptop is on battery.
+- Resumes after a crash when you re-run the same command.
 - Rewrites `results/STATUS.txt` every 30 s.
-- Sends phone notifications through [ntfy.sh](https://ntfy.sh) on a random topic, saved in `results/ntfy_topic.txt`.
+- Optionally sends progress notifications through [ntfy.sh](https://ntfy.sh).
+
+On a fresh Linux GPU machine, `run_runpod.sh` installs everything and runs the full benchmark in the background (the reported results come from one NVIDIA A40 run this way).
 
 ## Tests
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
+```bash
+python -m pytest
 ```
 
 The tests use a dependency-free `FakeBackbone` (no GPU, no downloads). They check the following:
@@ -157,16 +148,15 @@ psiduck/
   backbone.py   SharedModel: one HF model, shared KV cache, latent steps
   roles.py      delegate, decoder and baseline prompts
   answers.py    final-answer extraction and normalization
-  data.py       GSM8K / AIME loaders with local cache and retries
+  data.py       GSM8K / AIME / AMC loaders with local cache and retries
   runner.py     unattended, resumable eval driver
   analysis.py   accuracy, McNemar tests, SUMMARY.md
-  system.py     keep-awake, battery check, ntfy notifications
+  system.py     power management and notifications
   config.py     settings (defaults = the pre-registered values)
 main.py             try one problem
 analyze.py          build SUMMARY.md
-run_overnight.ps1   the full benchmark (Windows laptop)
-run_runpod.sh       the full benchmark (RunPod / Linux GPU)
-scripts/            run_eval.py, prefetch.py
+run_runpod.sh       setup + full benchmark on a fresh Linux GPU machine
+scripts/            run_eval.py, run_extra.py, prefetch.py
 tests/              pytest suite
 ```
 
