@@ -49,3 +49,7 @@ AIME results count only if both configs completed all 60 problems (pre-registere
 - Forward passes (counts prompt reads, latent steps and decoding): latent used 0.93x the baseline's.
 - Wall-clock time (measured per problem, same GPU): latent took 4.8% less time than baseline.
 - Verdict: latent is more accurate than the baseline on these problems; the difference is **not** statistically significant (alpha = 0.05).
+
+## Experiment 3: GSM8K at a 4,096-token cap (in progress)
+
+Re-runs the first 200 of the same shuffled GSM8K problems with a 4,096-token cap for both configs, to test whether the GSM8K gap survives when the baseline is not truncated. Registered in EVAL_PLAN.md before the run; results appear here when it finishes.

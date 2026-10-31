@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import sys
 
-from psiduck.analysis import build_summary, inject_readme
+from psiduck.analysis import build_limitations, build_summary, build_tldr, inject_readme, write_figure
 from psiduck.hf_env import REPO_ROOT
 
 
@@ -18,7 +18,9 @@ def main() -> int:
     plan = json.loads(plan_path.read_text()) if plan_path.exists() else None
     summary = build_summary(results, plan)
     (REPO_ROOT / "SUMMARY.md").write_text(summary, encoding="utf-8")
-    inject_readme(REPO_ROOT / "README.md", summary)
+    write_figure(results, plan, REPO_ROOT / "docs" / "accuracy_vs_compute.svg")
+    inject_readme(REPO_ROOT / "README.md", summary, tldr=build_tldr(results, plan),
+                  limitations=build_limitations(results, plan))
     print(summary)
     return 0
 
