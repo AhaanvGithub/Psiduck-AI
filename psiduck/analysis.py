@@ -70,12 +70,15 @@ def paired(a: dict[int, dict], b: dict[int, dict]) -> Optional[dict]:
     tok_b = sum(b[i].get("generated_tokens", 0) for i in idx)
     fp_a = sum(a[i].get("forward_passes", 0) for i in idx)
     fp_b = sum(b[i].get("forward_passes", 0) for i in idx)
+    wall_a = sum(a[i].get("wall_s", 0) for i in idx)
+    wall_b = sum(b[i].get("wall_s", 0) for i in idx)
     return dict(
         n=len(idx), both=both, a_only=a_only, b_only=b_only, neither=neither,
         acc_diff=(a_only - b_only) / len(idx),
         p=mcnemar_exact(a_only, b_only),
         token_reduction=(1 - tok_a / tok_b) if tok_b else None,
         forward_ratio=(fp_a / fp_b) if fp_b else None,
+        wall_reduction=(1 - wall_a / wall_b) if wall_b else None,
     )
 
 
@@ -138,6 +141,12 @@ def dataset_section(title: str, results: dict[str, dict[int, dict]], expected_n:
                 f"- Forward passes (counts prompt reads, latent steps and decoding): {cfg} used "
                 f"{c['forward_ratio']:.2f}x the baseline's."
             )
+        if c["wall_reduction"] is not None:
+            direction = "less" if c["wall_reduction"] >= 0 else "more"
+            lines.append(
+                f"- Wall-clock time (measured per problem, same GPU): {cfg} took "
+                f"{abs(100 * c['wall_reduction']):.1f}% {direction} time than baseline."
+            )
         if c["acc_diff"] < 0:
             verdict = f"{cfg} is **less accurate** than the baseline on these problems"
         elif c["acc_diff"] > 0:
@@ -173,6 +182,12 @@ def build_summary(results_dir: Path, plan: Optional[dict]) -> str:
     amc = load_results(results_dir, "amc23", None)
     if amc:
         lines += dataset_section("Experiment 2: AMC 2023 (40 problems, 4,096-token cap)", amc, 40)
+    g4k = load_results(results_dir, "gsm8k_4096", None)
+    if g4k:
+        lines += dataset_section("Experiment 3: GSM8K at a 4,096-token cap (first 200 of the same shuffled problems)",
+                                 g4k, 200)
+        lines.append("Only problems finished by both configs enter the paired comparison (pre-registered).")
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 

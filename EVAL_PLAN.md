@@ -69,3 +69,11 @@ Experiment 1 (above) is complete and its results stand unchanged; this is an add
 - **Configs and settings:** identical to Experiment 1 (Qwen3-8B bf16 on the same A40, thinking on, temperature 0.6, top-p 0.95, per-problem seeds), except **`max_new_tokens = 4096`** for both configs. The higher cap was chosen because AIME at 2,048 tokens truncated every output.
 - **Disclosure:** before this section was written, an exploratory smoke test was run on the first 2 problems (both configs answered both correctly; nothing else was looked at). It was stopped and is not counted; the full run re-solves those problems with their own seeds.
 - **Order and metrics:** latent on all 40, then baseline on all 40; same metrics and exact McNemar test as Experiment 1. Run with `scripts/run_extra.py amc23 --max-new-tokens 4096`.
+
+## Experiment 3: GSM8K at a 4,096-token cap (added 2026-10-30, before it was run)
+Experiments 1 and 2 are complete and their results stand unchanged. This run tests one question raised by Experiment 1: does latent's GSM8K advantage persist when the baseline has room to finish (Experiment 1's baseline hit the 2,048-token cap on 185 of 500 problems)?
+- **Problems:** the first 200 problems of the same seed-42 shuffled GSM8K test order as Experiment 1, with the same per-problem seeds.
+- **Configs and settings:** identical to Experiment 1 (Qwen3-8B bf16, thinking on, temperature 0.6, top-p 0.95), except **`max_new_tokens = 4096`** for both configs.
+- **Order:** interleaved (latent then baseline on each problem), so a run cut short by budget still leaves complete pairs. Only problems finished by both configs enter the paired comparison; the number of completed pairs is reported.
+- **Metrics:** same as Experiment 1 (accuracy, generated tokens, forward passes, wall-clock time, cap hits, exact McNemar). No accuracy from this run was viewed before this section was written.
+- Run with `scripts/run_extra.py gsm8k --max-new-tokens 4096 --shuffled --n 200 --interleave --out gsm8k_4096`.
