@@ -52,4 +52,4 @@ AIME results count only if both configs completed all 60 problems (pre-registere
 
 ## Experiment 3: GSM8K at a 4,096-token cap (in progress)
 
-Re-runs the first 200 of the same shuffled GSM8K problems with a 4,096-token cap for both configs, to test whether the GSM8K gap survives when the baseline is not truncated. Registered in EVAL_PLAN.md before the run; results appear here when it finishes.
+Re-runs the same 500 shuffled GSM8K problems (first 200 as registered, then an extension to 500) with a 4,096-token cap for both configs, to test whether the GSM8K gap survives when the baseline is not truncated. Registered in EVAL_PLAN.md before the run; results appear here when it finishes.

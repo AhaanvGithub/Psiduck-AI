@@ -77,3 +77,8 @@ Experiments 1 and 2 are complete and their results stand unchanged. This run tes
 - **Order:** interleaved (latent then baseline on each problem), so a run cut short by budget still leaves complete pairs. Only problems finished by both configs enter the paired comparison; the number of completed pairs is reported.
 - **Metrics:** same as Experiment 1 (accuracy, generated tokens, forward passes, wall-clock time, cap hits, exact McNemar). No accuracy from this run was viewed before this section was written.
 - Run with `scripts/run_extra.py gsm8k --max-new-tokens 4096 --shuffled --n 200 --interleave --out gsm8k_4096`.
+
+### Experiment 3 extension to N = 500 (added 2026-10-30, while the first 200 pairs were running and before any Experiment 3 accuracy was viewed)
+- **Why:** more rental budget became available, and Experiment 1 used 500 problems, so the extension makes Experiment 3 cover the same problem set.
+- **What:** after the 200 registered pairs finish, the same run continues on problems 200–499 of the same seed-42 shuffled order, with the same per-problem seeds, the same 4,096-token cap and the same interleaved order. Nothing else changes.
+- **Reporting:** both the originally registered first 200 pairs and the full 500 pairs are reported, each with its own exact McNemar test. The 200-pair result is the pre-registered one; the 500-pair result is labeled as the extension.

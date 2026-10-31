@@ -182,19 +182,23 @@ def build_summary(results_dir: Path, plan: Optional[dict]) -> str:
     amc = load_results(results_dir, "amc23", None)
     if amc:
         lines += dataset_section("Experiment 2: AMC 2023 (40 problems, 4,096-token cap)", amc, 40)
-    g4k = load_results(results_dir, "gsm8k_4096", None)
-    if g4k:
-        lines += dataset_section("Experiment 3: GSM8K at a 4,096-token cap (first 200 of the same shuffled problems)",
-                                 g4k, 200)
-        lines.append("Only problems finished by both configs enter the paired comparison (pre-registered).")
+    g4k_200 = load_results(results_dir, "gsm8k_4096", 200)
+    if g4k_200:
+        lines += dataset_section("Experiment 3: GSM8K at a 4,096-token cap (first 200 problems, as registered)",
+                                 g4k_200, 200)
+        g4k_500 = load_results(results_dir, "gsm8k_4096", 500)
+        if any(len(r) > 200 for r in g4k_500.values()):
+            lines += dataset_section("Experiment 3 extension: GSM8K at a 4,096-token cap (all 500 problems)",
+                                     g4k_500, 500)
+        lines.append("Only problems finished by both configs enter the paired comparisons (pre-registered).")
         lines.append("")
     else:
         lines += [
             "## Experiment 3: GSM8K at a 4,096-token cap (in progress)",
             "",
-            "Re-runs the first 200 of the same shuffled GSM8K problems with a 4,096-token cap for both configs, "
-            "to test whether the GSM8K gap survives when the baseline is not truncated. "
-            "Registered in EVAL_PLAN.md before the run; results appear here when it finishes.",
+            "Re-runs the same 500 shuffled GSM8K problems (first 200 as registered, then an extension to 500) with a "
+            "4,096-token cap for both configs, to test whether the GSM8K gap survives when the baseline is not "
+            "truncated. Registered in EVAL_PLAN.md before the run; results appear here when it finishes.",
             "",
         ]
     return "\n".join(lines).rstrip() + "\n"
